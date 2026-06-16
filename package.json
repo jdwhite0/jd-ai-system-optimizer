@@ -1,0 +1,42 @@
+{
+  "name": "jd-ai-system-optimizer",
+  "version": "1.0.0",
+  "description": "Free, open-source toolkit to cut your AI bill without cutting quality. Multi-model fallback routing (Gemini, Ollama, Claude, GPT), a silent-fallback cost guard, and a live AI cost statusline. Built and battle-tested inside a real multi-agent business system.",
+  "keywords": [
+    "ai",
+    "llm",
+    "cost-optimization",
+    "llm-cost",
+    "claude",
+    "anthropic",
+    "gemini",
+    "openai",
+    "ollama",
+    "model-routing",
+    "llm-router",
+    "fallback-chain",
+    "ai-agents",
+    "claude-code",
+    "token-efficiency",
+    "ai-cost",
+    "fintech",
+    "developer-tools"
+  ],
+  "license": "MIT",
+  "author": "Jerry Devin (JD AI System)",
+  "homepage": "https://github.com/jdwhite0/jd-ai-system-optimizer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jdwhite0/jd-ai-system-optimizer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jdwhite0/jd-ai-system-optimizer/issues"
+  },
+  "scripts": {
+    "verify-models": "tsx src/verify-models.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

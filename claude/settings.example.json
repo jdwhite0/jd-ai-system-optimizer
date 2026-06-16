@@ -1,0 +1,39 @@
+{
+  "//": "JD AI System Optimizer — example Claude Code settings.json",
+  "//1": "Copy the parts you want into ~/.claude/settings.json (global) or",
+  "//2": ".claude/settings.json (per project). Adjust paths to your machine.",
+
+  "statusLine": {
+    "//": "Live session cost in your status bar. See statusline/ in this repo.",
+    "type": "command",
+    "command": "bash ~/.claude/claude-cost-statusline.sh"
+  },
+
+  "permissions": {
+    "//allow": "Pre-approve safe, read-only operations so you stop clicking 'allow' all day. These never modify anything.",
+    "allow": [
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(find . *)",
+      "Bash(tail *)",
+      "Bash(head *)",
+      "Bash(wc *)",
+      "Bash(git status)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git branch *)",
+      "Bash(pgrep -f *)",
+      "Bash(ps aux *)"
+    ],
+
+    "//deny": "Hard-block destructive or outward-facing commands so they ALWAYS require explicit confirmation, even if something tries to auto-run them.",
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(curl * | bash *)",
+      "Bash(curl * | sh *)"
+    ]
+  }
+}
