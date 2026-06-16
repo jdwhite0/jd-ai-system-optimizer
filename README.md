@@ -18,7 +18,7 @@ A free, open-source toolkit that cuts your AI bill without cutting quality — b
 
 ## Why this exists
 
-I'm Jerry Devin, founder of **JD AI System** — an AI operating system that runs a
+I'm JD White, founder of **JD AI System** — an AI operating system that runs a
 fleet of autonomous agents for lead generation, outreach, and content.
 
 One morning I opened my usage dashboard and saw **62% of my monthly AI budget
@@ -164,6 +164,6 @@ The goal is a shared, trustworthy playbook for running AI in production affordab
 
 **A free tool from [JD AI System](https://github.com/jdwhite0)** — the AI operating system for founders.
 
-Built by Jerry Devin · MIT License · Use it freely
+Built by JD White · MIT License · Use it freely
 
 </div>
