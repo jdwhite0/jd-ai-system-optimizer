@@ -38,8 +38,9 @@ developer running AI in production. No catch, no upsell.
 
 | Tool | What it does | Typical saving |
 |---|---|---|
-| 🔀 **[Multi-model fallback chain](src/ai-provider.ts)** | Routes routine work to cheap/fast models (Gemini Flash, local Ollama) and only escalates to a premium model (Claude/GPT) as a true last resort. | 70–95% on agent workloads |
+| 🔀 **[Multi-model fallback chain](src/ai-provider.ts)** | Routes routine work to cheap/fast models (Gemini Flash, local Ollama) and only escalates to a premium model (Claude/GPT) as a true last resort. Includes a Gemini 2.5 *thinking-mode guard* so short tasks don't return empty and silently fall through to your premium model. | 70–95% on agent workloads |
 | 🛡️ **[Silent-fallback guard](src/verify-models.ts)** | Pings each "cheap" model to catch wrong/stale model names *before* they silently route 100% of traffic to your premium model. | Prevents the 10x surprise |
+| 🗃️ **[Response cache](src/ai-cache.ts)** | Zero-dependency cache for deterministic calls (scoring, classification). Repeated/near-identical prompts return instantly, free. Opt-in per call — never caches generative output. | Eliminates repeat-call spend |
 | 💰 **[Live cost statusline](statusline/claude-cost-statusline.sh)** | Shows your current AI session cost right in your editor's status bar. Turns yellow at \$2, red at \$5. | Catch runaway spend in minute one |
 | ⚙️ **[Settings templates](claude/settings.example.json)** | Pre-approve safe read-only commands, hard-block destructive ones. Less friction, more safety. | Fewer prompts, safer sessions |
 | ✂️ **[Token-efficiency rules](claude/token-efficiency.md)** | Drop-in instructions that make your AI answer tighter — lower output cost, faster reads. | ~10–15% on output tokens |
@@ -62,6 +63,14 @@ import { generateText } from './src/ai-provider'
 // every cheaper option is genuinely unavailable.
 const result = await generateText(systemPrompt, userPrompt)
 console.log(`Served by: ${result.provider}`)  // e.g. "gemini-flash"
+
+// For DETERMINISTIC tasks (scoring, classification), opt into the cache.
+// Repeated/near-identical prompts return instantly and free.
+const score = await generateText(systemPrompt, userPrompt, { cache: true })
+// First call: "gemini-flash" | second call: "cache" (0ms, $0)
+//
+// ⚠️ NEVER pass { cache: true } for generative output (emails, content) —
+//    you'd hand identical text to different recipients.
 ```
 
 Set your keys as environment variables (never hardcode them):
@@ -124,6 +133,23 @@ quietly doing the work.* Route cheap, make failures loud, and put the dollar
 amount where you can see it. That's the whole philosophy.
 
 ---
+
+## Acknowledgements & Prior Art
+
+This toolkit is an **independent, original implementation**. No code was copied from
+any other project — these implementations were written from scratch after studying
+the *publicly documented techniques* of the projects below. Concepts and algorithms
+aren't copyrightable; literal code is, and none is reused here. Credit where it's due:
+
+| Project | License | What inspired this toolkit |
+|---|---|---|
+| [GPTCache](https://github.com/zilliztech/GPTCache) | MIT | The idea of caching LLM responses to skip redundant API calls. (GPTCache uses embedding-based semantic matching; this toolkit uses a simpler, zero-dependency normalized exact-match cache.) |
+| [prompt-cache](https://github.com/messkan/prompt-cache) | MIT | Drop-in caching as a thin layer over the LLM call. |
+| [llm-router](https://github.com/ypollak2/llm-router) | MIT | The cost-ascending fallback chain — cheapest capable model first, premium last. |
+
+These are excellent projects worth using directly if their approach fits your stack.
+This toolkit exists for cases where a small, fully-readable, dependency-free
+implementation is preferred. Go star their work.
 
 ## Contributing
 

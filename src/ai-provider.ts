@@ -26,7 +26,14 @@
  *   GOOGLE_API_KEY     — from https://aistudio.google.com/apikey
  *   ANTHROPIC_API_KEY  — from https://console.anthropic.com (optional, last resort)
  *   OLLAMA_ENDPOINT    — defaults to http://127.0.0.1:11434
+ *
+ * Includes two hard-won fixes:
+ *   1. Opt-in response cache (ai-cache.ts) for deterministic calls.
+ *   2. Gemini 2.5 "thinking" guard — on short tasks, thinking eats the whole
+ *      output budget and returns EMPTY, which silently falls through to your
+ *      premium model. Flash disables thinking on short tasks; Pro gets headroom.
  */
+import { cacheKey, cacheGet, cacheSet } from './ai-cache'
 
 // ─── Model configuration ─────────────────────────────────────────────────────
 // Update these to the current model IDs from each provider. Wrong IDs = silent
@@ -44,7 +51,7 @@ const COOLDOWN_MS = 5_000
 const RETRY_DELAY_MS = 2_000
 const MAX_RETRIES = 1
 
-export type Provider = 'gemini-flash' | 'gemini-pro' | 'anthropic' | 'ollama'
+export type Provider = 'gemini-flash' | 'gemini-pro' | 'anthropic' | 'ollama' | 'cache'
 
 export interface AiResponse {
   content: string
@@ -54,6 +61,9 @@ export interface AiResponse {
 export interface AiOptions {
   json?: boolean
   maxTokens?: number
+  /** Opt-in cache. ONLY for deterministic tasks (scoring/classification). */
+  cache?: boolean
+  cacheTtlMs?: number
 }
 
 // ─── Rate-limit cooldown tracking ────────────────────────────────────────────
@@ -89,11 +99,22 @@ async function tryGemini(
 
   const attempt = async (): Promise<AiResponse | null> => {
     try {
+      // Gemini 2.5 has a "thinking" phase that consumes the output-token budget.
+      // On short tasks (low maxTokens) thinking eats the whole budget and returns
+      // an EMPTY response — which silently falls through to slow/expensive models.
+      //   - Flash supports thinkingBudget: 0 → turn thinking OFF on short tasks.
+      //   - Pro CANNOT disable thinking, so give it headroom instead.
+      const isFast = model === FAST_MODEL
+      let maxOut = options?.maxTokens ?? DEFAULT_MAX_TOKENS
+      const shortTask = maxOut < 512
+      const disableThinking = isFast && shortTask
+      if (!isFast && shortTask) maxOut = 2048
       const body: Record<string, unknown> = {
         contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
         generationConfig: {
           temperature: 0.5,
-          maxOutputTokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
+          maxOutputTokens: maxOut,
+          ...(disableThinking ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
           ...(options?.json ? { responseMimeType: 'application/json' } : {}),
         },
       }
@@ -230,6 +251,15 @@ export async function generateText(
   userPrompt: string,
   options?: AiOptions,
 ): Promise<AiResponse> {
+  // Opt-in cache — ONLY for deterministic tasks. Returns instantly on a hit,
+  // skipping every provider. Never enable for generative output.
+  let key = ''
+  if (options?.cache) {
+    key = cacheKey(systemPrompt, userPrompt, options.json ? 'json' : '')
+    const hit = cacheGet(key)
+    if (hit) return { content: hit.content, provider: 'cache' }
+  }
+
   let result: AiResponse | null = null
 
   // Cheapest first. Claude is the absolute last resort so it only bills when
@@ -242,6 +272,10 @@ export async function generateText(
   if (!result) {
     throw new Error('All AI providers failed: Gemini Flash, Gemini Pro, Ollama, Anthropic.')
   }
+
+  if (options?.cache && key && result.content) {
+    cacheSet(key, result.content, result.provider, options.cacheTtlMs)
+  }
   return result
 }
 
@@ -252,10 +286,15 @@ export async function generateText(
 export async function generateJson<T>(
   systemPrompt: string,
   userPrompt: string,
-  options?: { maxTokens?: number },
+  options?: { maxTokens?: number; cache?: boolean; cacheTtlMs?: number },
 ): Promise<{ data: T; provider: Provider }> {
   const enhanced = `${userPrompt}\n\nRespond with ONLY valid JSON. No markdown, no explanation, no code fences. Just raw JSON.`
-  const result = await generateText(systemPrompt, enhanced, { json: true, maxTokens: options?.maxTokens })
+  const result = await generateText(systemPrompt, enhanced, {
+    json: true,
+    maxTokens: options?.maxTokens,
+    cache: options?.cache,
+    cacheTtlMs: options?.cacheTtlMs,
+  })
 
   const extract = (text: string): string => {
     let t = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
